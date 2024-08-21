@@ -46,7 +46,7 @@ async fn echo(req_body: web::Json<Value>, data: web::Data<AppState>) -> impl Res
     HttpResponse::Ok().json(echo_msg)
 }
 
-/// Configures `/api` endpoints.
+/// Configure `/api` endpoints.
 /// 
 /// ### Params
 /// `app_name`: Name of the application

@@ -18,8 +18,7 @@ async fn main() -> std::io::Result<()> {
     // access logs are printed with the INFO level so ensure it is enabled by default
     env_logger::init_from_env(Env::default().default_filter_or("info"));
 
-    // actix will create a handler using ::new func. By default it matches the number of available cores.
-    // this means the following code will be called n-times.
+    // actix will call this function for the requested number of handlers (default == num of cores)
     HttpServer::new(move || {
         let api_scope = web::scope("/api")
             .configure(|svc_config| api_endpoints::api_config(svc_config, config.appname.clone()));
