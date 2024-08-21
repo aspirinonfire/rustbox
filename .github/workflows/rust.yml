@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  API_POC_DIR: api_poc
 
 jobs:
   build:
@@ -16,7 +17,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    
     - name: Build
+      working-directory: ${{ env.API_POC_DIR }}
       run: cargo build --verbose
+    
     - name: Run tests
+      working-directory: ${{ env.API_POC_DIR }}
       run: cargo test --verbose
