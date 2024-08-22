@@ -16,17 +16,17 @@ pub struct GameScoreResult {
 impl GameScoreResult {
     /// Calculate total game score from spotted plates.
     /// Score is calculated based on the number of spotted plates and
-    /// whether one or more plates qualify for special achievement bonuses such as `West Coast`.
+    /// any special achievement bonuses such as `West Coast`.
     pub fn new(plates: &Vec<SpottedPlate>) -> GameScoreResult {
         let plates_hash: HashSet<_> = plates.iter().collect();
 
-        let unique_spotted_plates = plates_hash.len() as u32;
+        let num_of_spotted_plates = plates_hash.len() as u32;
 
         let (achievements, total_score) = [("West Coast", calc_west_coast_bonus(plates_hash))]
             .iter()
             .filter(|(_, (is_achieved, _))| *is_achieved)
             .fold(
-                (Vec::new(), unique_spotted_plates),
+                (Vec::new(), num_of_spotted_plates),
                 |(mut achievements, mut total_score), (this_achievement, (_, this_score))| {
                     total_score += this_score;
                     achievements.push(String::from(*this_achievement));
@@ -35,7 +35,7 @@ impl GameScoreResult {
             );
 
         GameScoreResult {
-            num_of_spotted_plates: unique_spotted_plates,
+            num_of_spotted_plates,
             achievements,
             total_score,
         }
