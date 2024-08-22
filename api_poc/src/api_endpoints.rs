@@ -1,7 +1,7 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
-use serde:: { Serialize, Deserialize };
-use serde_json::Value;
 use log::info;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::AppState;
 
@@ -9,13 +9,13 @@ use crate::AppState;
 // somewhat similar to dotnet source generators
 #[derive(Deserialize)]
 struct HelloParams {
-    username: String
+    username: String,
 }
 
 #[derive(Serialize)]
 struct EchoMessage<'a> {
     app_name: &'a str,
-    request_body: Value
+    request_body: Value,
 }
 
 #[get("/hello/{user_name}")]
@@ -33,17 +33,17 @@ async fn echo(req_body: web::Json<Value>, data: web::Data<AppState>) -> impl Res
     info!("Processing 'echo' request");
 
     let echo_msg = EchoMessage {
-      // must 'clone' the original app_name value because EchoMessage will outlive echo function
-      // and therefore we can't use lifetimes in struct def.
-      app_name: &data.config.appname,
-      request_body: req_body.into_inner()
+        // must 'clone' the original app_name value because EchoMessage will outlive echo function
+        // and therefore we can't use lifetimes in struct def.
+        app_name: &data.config.appname,
+        request_body: req_body.into_inner(),
     };
-    
+
     HttpResponse::Ok().json(echo_msg)
 }
 
 /// Configure `/api` endpoints.
-/// 
+///
 /// ### Params
 /// `app_name`: Name of the application
 pub fn api_config(cfg: &mut web::ServiceConfig) {

@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[serde(default)]
 pub struct AppConfig {
     pub appname: String,
+    pub host_ip: String,
     pub port: u16
 }
 
@@ -14,6 +15,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             appname: String::from("game api"),
+            host_ip: String::from("0.0.0.0"),
             port: 8000
         }
     }

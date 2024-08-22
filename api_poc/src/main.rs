@@ -1,6 +1,8 @@
 use std::sync::Arc;
 mod api_endpoints;
 mod app_config;
+// TODO remove these direct mod refs once app is all wired up. This is needed for analyzers and tests to run properly.
+mod game;
 
 struct AppState {
     config: Arc<app_config::AppConfig>
@@ -23,8 +25,8 @@ async fn main() -> std::io::Result<()> {
     
     // Load configuration
     let config = AppConfig::build_config().expect("Failed to load configuration");
-    let port = config.port;
-    let config_ref = Arc::new(config);
+    let bind_host = (config.host_ip.clone(), config.port);
+    let config = Arc::new(config);
 
     // actix will call this function for the requested number of handlers (default == num of cores)
     HttpServer::new(move || {
@@ -39,11 +41,11 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::new("%r %s %Dms"))
             .wrap(middleware::Compress::default())
             .app_data(web::Data::new(AppState {
-                config: config_ref.clone()
+                config: config.clone()
             }))
             .service(api_scope)
     })
-    .bind(("127.0.0.1", port))?
+    .bind(bind_host)?
     .run()
     .await
 }
