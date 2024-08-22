@@ -4,8 +4,19 @@ use log::{info, warn};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+#[serde(default)]
 pub struct AppConfig {
-    pub appname: String
+    pub appname: String,
+    pub port: u16
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            appname: String::from("game api"),
+            port: 8000
+        }
+    }
 }
 
 impl AppConfig {
