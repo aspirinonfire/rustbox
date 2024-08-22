@@ -1,7 +1,6 @@
 use std::sync::Arc;
 mod api_endpoints;
 mod app_config;
-// TODO remove these direct mod refs once app is all wired up. This is needed for analyzers and tests to run properly.
 mod game;
 
 struct AppState {

@@ -9,6 +9,7 @@ pub struct SpottedPlate {
     pub state_or_province: StateOrProvince
 }
 
+#[allow(dead_code)]
 static VALID_GAME_PLATES_WITH_BORDERS: LazyLock<
     HashMap<(Country, StateOrProvince), HashSet<(Country, StateOrProvince)>>,
 > = LazyLock::new(|| {

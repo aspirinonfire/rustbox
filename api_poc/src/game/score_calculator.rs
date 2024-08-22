@@ -1,9 +1,12 @@
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
+use serde::Serialize;
+
 use super::license_plate_enums::{Country, StateOrProvince};
 use super::license_plates::SpottedPlate;
 
+#[derive(Serialize)]
 pub struct GameScoreResult {
     num_of_spotted_plates: u32,
     achievements: Vec<String>,
@@ -11,23 +14,28 @@ pub struct GameScoreResult {
 }
 
 impl GameScoreResult {
-    fn new(plates: &Vec<SpottedPlate>) -> GameScoreResult {
+    /// Calculate total game score from spotted plates.
+    /// Score is calculated based on the number of spotted plates and
+    /// whether one or more plates qualify for special achievement bonuses such as `West Coast`.
+    pub fn new(plates: &Vec<SpottedPlate>) -> GameScoreResult {
         let plates_hash: HashSet<_> = plates.iter().collect();
+
+        let unique_spotted_plates = plates_hash.len() as u32;
 
         let (achievements, total_score) = [("West Coast", calc_west_coast_bonus(plates_hash))]
             .iter()
             .filter(|(_, (is_achieved, _))| *is_achieved)
             .fold(
-                (Vec::new(), plates.len() as u32),
-                |(mut achievements, mut score), (this_achievement, (_, this_score))| {
-                    score += this_score;
+                (Vec::new(), unique_spotted_plates),
+                |(mut achievements, mut total_score), (this_achievement, (_, this_score))| {
+                    total_score += this_score;
                     achievements.push(String::from(*this_achievement));
-                    (achievements, score)
+                    (achievements, total_score)
                 },
             );
 
         GameScoreResult {
-            num_of_spotted_plates: plates.len() as u32,
+            num_of_spotted_plates: unique_spotted_plates,
             achievements,
             total_score,
         }
@@ -91,6 +99,26 @@ mod tests {
 
         assert_eq!(2, actual_score_result.num_of_spotted_plates);
         assert_eq!(2, actual_score_result.total_score);
+        assert_eq!(0, actual_score_result.achievements.len());
+    }
+
+    #[test]
+    fn will_return_valid_total_score_on_duplicate_spots_without_achievements() {
+        let spotted_plates = Vec::from([
+            SpottedPlate {
+                country: Country::US,
+                state_or_province: StateOrProvince::AB,
+            },
+            SpottedPlate {
+                country: Country::US,
+                state_or_province: StateOrProvince::AB,
+            },
+        ]);
+
+        let actual_score_result = GameScoreResult::new(&spotted_plates);
+
+        assert_eq!(1, actual_score_result.num_of_spotted_plates);
+        assert_eq!(1, actual_score_result.total_score);
         assert_eq!(0, actual_score_result.achievements.len());
     }
 

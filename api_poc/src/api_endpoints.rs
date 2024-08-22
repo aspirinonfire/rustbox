@@ -3,7 +3,10 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::AppState;
+use crate::{
+    game::{license_plates::SpottedPlate, score_calculator::GameScoreResult},
+    AppState,
+};
 
 // derive macro instructs compiler to implement Deserialize trait automatically.
 // somewhat similar to dotnet source generators
@@ -33,13 +36,20 @@ async fn echo(req_body: web::Json<Value>, data: web::Data<AppState>) -> impl Res
     info!("Processing 'echo' request");
 
     let echo_msg = EchoMessage {
-        // must 'clone' the original app_name value because EchoMessage will outlive echo function
-        // and therefore we can't use lifetimes in struct def.
         app_name: &data.config.appname,
         request_body: req_body.into_inner(),
     };
 
     HttpResponse::Ok().json(echo_msg)
+}
+
+#[post("/calc_score")]
+async fn calc_score(req_body: web::Json<Vec<SpottedPlate>>) -> impl Responder {
+    let spotted_plates = req_body.into_inner();
+
+    let game_score = GameScoreResult::new(&spotted_plates);
+
+    HttpResponse::Ok().json(game_score)
 }
 
 /// Configure `/api` endpoints.
@@ -49,5 +59,6 @@ async fn echo(req_body: web::Json<Value>, data: web::Data<AppState>) -> impl Res
 pub fn api_config(cfg: &mut web::ServiceConfig) {
     cfg
         .service(hello)
-        .service(echo);
+        .service(echo)
+        .service(calc_score);
 }
