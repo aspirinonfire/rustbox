@@ -1,8 +1,14 @@
+use serde::Deserialize;
 use super::license_plate_enums::{Country, StateOrProvince};
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
-#[allow(dead_code)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
+pub struct SpottedPlate {
+    pub country: Country,
+    pub state_or_province: StateOrProvince
+}
+
 static VALID_GAME_PLATES_WITH_BORDERS: LazyLock<
     HashMap<(Country, StateOrProvince), HashSet<(Country, StateOrProvince)>>,
 > = LazyLock::new(|| {

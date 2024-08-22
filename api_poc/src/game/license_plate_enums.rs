@@ -1,12 +1,14 @@
+use serde::Deserialize;
+
 #[allow(dead_code)]
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
 pub enum Country {
     US,
     CA,
 }
 
 #[allow(dead_code)]
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
 pub enum StateOrProvince {
     // US
     AL,
