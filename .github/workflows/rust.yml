@@ -15,13 +15,24 @@ jobs:
 
     runs-on: ubuntu-22.04
 
+    defaults:
+      run:
+        working-directory: ${{ env.API_POC_DIR }}
+
     steps:
     - uses: actions/checkout@v4
     
+    - name: Setup Rust
+      run: cargo install cargo-audit
+
     - name: Build
-      working-directory: ${{ env.API_POC_DIR }}
-      run: cargo build --verbose
+      run: cargo build --verbose --release
     
     - name: Run tests
-      working-directory: ${{ env.API_POC_DIR }}
-      run: cargo test --verbose
+      run: cargo test --verbose --release
+
+    - name: Clippy check
+      run: cargo clippy --verbose -- -D warnings
+
+    - name: Audit check
+      run: cargo audit

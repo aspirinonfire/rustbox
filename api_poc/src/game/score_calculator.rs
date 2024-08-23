@@ -17,7 +17,7 @@ impl GameScoreResult {
     /// Calculate total game score from spotted plates.
     /// Score is calculated based on the number of spotted plates and
     /// any special achievement bonuses such as `West Coast`.
-    pub fn new(plates: &Vec<SpottedPlate>) -> GameScoreResult {
+    pub fn new(plates: &[SpottedPlate]) -> GameScoreResult {
         let plates_hash: HashSet<_> = plates.iter().collect();
 
         let num_of_spotted_plates = plates_hash.len() as u32;
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn will_return_zero_total_score_on_no_spots() {
-        let spotted_plates = Vec::from([]);
+        let spotted_plates = [];
 
         let actual_score_result = GameScoreResult::new(&spotted_plates);
 
@@ -84,7 +84,7 @@ mod tests {
 
     #[test]
     fn will_return_valid_total_score_on_spots_without_achievements() {
-        let spotted_plates = Vec::from([
+        let spotted_plates = [
             SpottedPlate {
                 country: Country::US,
                 state_or_province: StateOrProvince::AB,
@@ -93,7 +93,7 @@ mod tests {
                 country: Country::US,
                 state_or_province: StateOrProvince::AK,
             },
-        ]);
+        ];
 
         let actual_score_result = GameScoreResult::new(&spotted_plates);
 
@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn will_return_valid_total_score_on_duplicate_spots_without_achievements() {
-        let spotted_plates = Vec::from([
+        let spotted_plates = [
             SpottedPlate {
                 country: Country::US,
                 state_or_province: StateOrProvince::AB,
@@ -113,7 +113,7 @@ mod tests {
                 country: Country::US,
                 state_or_province: StateOrProvince::AB,
             },
-        ]);
+        ];
 
         let actual_score_result = GameScoreResult::new(&spotted_plates);
 
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn will_return_valid_total_score_on_west_coast_achievement() {
-        let spotted_plates = Vec::from([
+        let spotted_plates = [
             SpottedPlate {
                 country: Country::US,
                 state_or_province: StateOrProvince::CA,
@@ -137,7 +137,7 @@ mod tests {
               country: Country::US,
               state_or_province: StateOrProvince::WA,
             },
-        ]);
+        ];
 
         let actual_score_result = GameScoreResult::new(&spotted_plates);
 

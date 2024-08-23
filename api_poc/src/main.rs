@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     // actix will call this function for the requested number of handlers (default == num of cores)
     HttpServer::new(move || {
         let api_scope = web::scope("/api")
-            .configure(|svc_config| api_endpoints::api_config(svc_config));
+            .configure(api_endpoints::api_config);
 
         App::new()
             // log each request. See https://docs.rs/actix-web/4.2.1/actix_web/middleware/struct.Logger.html#format

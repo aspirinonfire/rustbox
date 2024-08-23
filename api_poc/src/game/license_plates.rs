@@ -9,13 +9,13 @@ pub struct SpottedPlate {
     pub state_or_province: StateOrProvince
 }
 
+pub type PlateWithBorder = HashMap<(Country, StateOrProvince), HashSet<(Country, StateOrProvince)>>;
+
 #[allow(dead_code)]
-static VALID_GAME_PLATES_WITH_BORDERS: LazyLock<
-    HashMap<(Country, StateOrProvince), HashSet<(Country, StateOrProvince)>>,
-> = LazyLock::new(|| {
+static VALID_GAME_PLATES_WITH_BORDERS: LazyLock<PlateWithBorder> = LazyLock::new(|| {
     // TODO add Canadian borders (will need milestones and score updates)
     // TODO consider adding cross-country borders (eg. coast-to-coast through Canada)
-    let map = HashMap::from([
+    HashMap::from([
         // US
         (
             (Country::US, StateOrProvince::AL),
@@ -481,9 +481,7 @@ static VALID_GAME_PLATES_WITH_BORDERS: LazyLock<
         ((Country::CA, StateOrProvince::QC), HashSet::from([])),
         ((Country::CA, StateOrProvince::SK), HashSet::from([])),
         ((Country::CA, StateOrProvince::YT), HashSet::from([])),
-    ]);
-
-    map
+    ])
 });
 
 #[cfg(test)]
