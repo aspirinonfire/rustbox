@@ -1,21 +1,20 @@
-use std::{
-    future::{ready, Future, Ready},
-    pin::Pin,
-};
+use std::{collections::HashMap, future::{ready, Ready}, sync::Arc};
 
 use actix_web::{
-    dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    web::Data,
-    Error,
+    body::EitherBody, dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform}, http::header::AUTHORIZATION, web::Data, Error, HttpMessage, HttpResponse
 };
-use log::info;
+use futures_util::{future::LocalBoxFuture, FutureExt as _, TryFutureExt as _};
+use log::{error, info};
 
-use super::route_metadata::AppAuthParams;
+use crate::AppState;
 
-/// [Inspired by](https://medium.com/@sarathraj2008/middleware-in-actix-rust-5f7b9860ac70)
+/// [Inspired by](https://github.com/actix/examples/blob/master/middleware/rate-limit/src/rate_limit.rs)
 pub struct JwtAuthentication {
     // TODO add jwt params
 }
+
+#[derive(Debug, Clone)]
+pub struct UserIdentityClaims(pub HashMap<String, String>);
 
 /// JWT auth middleware
 pub struct JwtAuthenticationMiddleware<S> {
@@ -30,41 +29,66 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    actix_web::dev::forward_ready!(service);
+    forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         info!("Authenticating {}", req.uri());
 
-        // check if request allows anon
-        // TODO replace with request extensions
-        let route_auth_params = req.app_data::<Data<AppAuthParams>>();
-
-        match route_auth_params {
-            Some(state) => info!("allow auth {}", state.allow_anonymous),
-            None => info!("auth is missing"),
+        let app_state = req.app_data::<Data<Arc<AppState>>>();
+        if app_state.is_none() {
+            error!("AppState not found in app_data. TokenService is not available");
+            return  Box::pin(async {
+                Ok(req.into_response(HttpResponse::InternalServerError().finish().map_into_right_body()))
+            });
         }
 
-        let allow_anonymous =
-            route_auth_params.map_or(false, |auth_params| auth_params.allow_anonymous);
-
-        if allow_anonymous {
-            info!(
-                "Current endpoint allows anonymous authentication. Proceeding to next handler..."
+        // TODO check if route expects anonymous auth. Use allow-list for simplicity
+        
+        let bearer_token = req
+            .headers()
+            .get(AUTHORIZATION)
+            .and_then(|header_value|
+                header_value
+                    .to_str()
+                    // TODO make Bearer case-insenstive
+                    .map_or(None, |header_str| header_str.strip_prefix("Bearer "))
             );
-            let future = self.service.call(req);
-            return Box::pin(future);
+
+        if bearer_token.is_none() {
+            error!("Bearer token was not found in request headers");
+            return  Box::pin(async {
+                Ok(req.into_response(HttpResponse::Unauthorized().finish().map_into_right_body()))
+            });
+        };
+
+        // unwrapping is safe here because we have already validated app_state and bearer_token for None
+        let claims = app_state.unwrap()
+            .token_service.get_validated_claims(bearer_token.unwrap());
+
+        match claims {
+            Ok(claims) => {
+                // add claims to request extensions so endpoints can use claims for further processing
+                req.extensions_mut()
+                    .insert(UserIdentityClaims(claims));
+
+                self.service
+                    .call(req)
+                    .map_ok(ServiceResponse::map_into_left_body)
+                    .boxed_local()
+            },
+            Err(err) => {
+                error!("Bearer token is invalid: {err}");
+                
+                Box::pin(async {
+                    Ok(req.into_response(HttpResponse::Unauthorized().finish().map_into_right_body()))
+                })
+            }
         }
 
-        // TODO extract bearer token from authorization header
-        // TODO validate bearer token as jwt, short-circuit with 401 if missing or invalid
-        //let headers = req.headers();
-
-        let future = self.service.call(req);
-        Box::pin(future)
     }
 }
 
@@ -76,7 +100,7 @@ where
     B: 'static,
 {
     // Define associated types for the middleware
-    type Response = ServiceResponse<B>; // Type of the response
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error; // Type of error
     type Transform = JwtAuthenticationMiddleware<S>; // Type representing the transformed middleware
     type InitError = (); // Type of initialization error

@@ -16,4 +16,5 @@ Game Api proof-of-concept using [Actix Web](https://actix.rs/docs/getting-starte
 - [x] Project/folder structure
 - [ ] Mongo Client
 - [ ] Docker
-- [ ] JWT Auth
+- [x] Auth middleware
+- [ ] Bearer Auth (JWT)

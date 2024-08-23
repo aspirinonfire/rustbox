@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub appname: String,
     pub host_ip: String,
     pub port: u16,
+    pub jwt_signing_key: String,
 }
 
 impl Default for AppConfig {
@@ -17,6 +18,7 @@ impl Default for AppConfig {
             appname: String::from("game api"),
             host_ip: String::from("0.0.0.0"),
             port: 8000,
+            jwt_signing_key: String::new(),
         }
     }
 }
