@@ -134,8 +134,8 @@ mod tests {
                 state_or_province: StateOrProvince::OR,
             },
             SpottedPlate {
-              country: Country::US,
-              state_or_province: StateOrProvince::WA,
+                country: Country::US,
+                state_or_province: StateOrProvince::WA,
             },
         ];
 

@@ -1,19 +1,17 @@
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{
+    get, post,
+    web::{self, Data},
+    HttpResponse, Responder,
+};
 use log::info;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
+    auth::route_metadata::AppAuthParams,
     game::{license_plates::SpottedPlate, score_calculator::GameScoreResult},
     AppState,
 };
-
-// derive macro instructs compiler to implement Deserialize trait automatically.
-// somewhat similar to dotnet source generators
-#[derive(Deserialize)]
-struct HelloParams {
-    username: String,
-}
 
 #[derive(Serialize)]
 struct EchoMessage<'a> {
@@ -21,13 +19,20 @@ struct EchoMessage<'a> {
     request_body: Value,
 }
 
-#[get("/hello/{user_name}")]
-async fn hello(data: web::Data<AppState>, hello_params: web::Path<HelloParams>) -> impl Responder {
+#[get("/hello/{username}")]
+async fn hello(
+    data: web::Data<AppState>,
+    username: web::Path<String>,
+    auth_params: web::Data<AppAuthParams>,
+) -> impl Responder {
     let app_name = &data.config.appname;
     // must use format!("{}", struct.field) rather than format!("{struct.field}")
     // because this is a macro and compiler will replace placeholder at the compile time.
     // this works differently than dotnet string interpolation
-    let hello_message = format!("Hello world {} from {}", hello_params.username, app_name);
+    let hello_message = format!(
+        "Hello world {} from {}. Allow anon {}",
+        username, app_name, auth_params.allow_anonymous
+    );
     HttpResponse::Ok().json(hello_message)
 }
 
@@ -58,7 +63,16 @@ async fn calc_score(req_body: web::Json<Vec<SpottedPlate>>) -> impl Responder {
 /// `app_name`: Name of the application
 pub fn api_config(cfg: &mut web::ServiceConfig) {
     cfg
-        .service(hello)
+        // anonymous endpoints
+        .service(
+            web::scope("")
+                // TODO replace it with request extensions
+                .app_data(Data::new(AppAuthParams {
+                    allow_anonymous: true,
+                }))
+                .service(hello),
+        )
+        // endpoints that will be authenticated by default
         .service(echo)
         .service(calc_score);
 }

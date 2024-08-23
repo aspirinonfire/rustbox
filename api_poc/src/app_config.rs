@@ -8,7 +8,7 @@ use serde::Deserialize;
 pub struct AppConfig {
     pub appname: String,
     pub host_ip: String,
-    pub port: u16
+    pub port: u16,
 }
 
 impl Default for AppConfig {
@@ -16,7 +16,7 @@ impl Default for AppConfig {
         Self {
             appname: String::from("game api"),
             host_ip: String::from("0.0.0.0"),
-            port: 8000
+            port: 8000,
         }
     }
 }
