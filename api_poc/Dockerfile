@@ -14,8 +14,7 @@ COPY Cargo.toml .
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
 
-# copy real app source data and mark main.rs as modified
-# then build app for real
+# copy real app source data and mark main.rs as modified and then build full app
 COPY src src
 RUN touch src/main.rs
 RUN cargo build --release
@@ -23,10 +22,9 @@ RUN cargo build --release
 ####################################################################################################
 ## Final image
 ####################################################################################################
-# see https://github.com/GoogleContainerTools/distroless/blob/main/cc/README.md
-# and https://github.com/GoogleContainerTools/distroless/blob/main/examples/rust/Dockerfile
+# see https://github.com/GoogleContainerTools/distroless/blob/main/examples/rust/Dockerfile
 # image runs as non-root user by default
-FROM gcr.io/distroless/cc
+FROM gcr.io/distroless/cc-debian12
 
 COPY --from=builder /app/target/release/api /
 
