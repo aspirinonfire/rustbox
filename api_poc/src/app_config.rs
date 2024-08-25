@@ -1,5 +1,5 @@
 use config::{Config, ConfigError, Environment};
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use log::{info, warn};
 use serde::Deserialize;
 
