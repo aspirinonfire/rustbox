@@ -112,3 +112,99 @@ where
         ready(Ok(JwtAuthenticationMiddleware { service }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{app_config::AppConfig, auth::token_service::JwtTokenService};
+
+    use super::*;
+    use actix_web::{http::{self, StatusCode}, test, web, App};
+
+    #[actix_web::test]
+    async fn will_return_401_on_missing_auth() {
+        let app_state = Arc::new(AppState {
+            token_service: Box::new(JwtTokenService {
+                signing_key: "test key".to_string(),
+                issuer: "issuer".to_string(),
+                audience: "audience".to_string(),
+                validation_time_skew_sec: 1,
+            }),
+            config: AppConfig::default(),
+        });
+
+        let uut_app = test::init_service(
+            App::new()
+                .wrap(JwtAuthentication {})
+                .app_data(web::Data::new(app_state.clone()))
+                .route("/", web::get().to(HttpResponse::Ok)),
+        )
+        .await;
+        
+        let req = test::TestRequest::get().uri("/").to_request();
+        
+        let actual_resp = test::call_service(&uut_app, req).await;
+
+        assert_eq!(StatusCode::UNAUTHORIZED, actual_resp.status());
+    }
+
+    #[actix_web::test]
+    async fn will_return_401_on_bad_auth() {
+        let app_state = Arc::new(AppState {
+            token_service: Box::new(JwtTokenService {
+                signing_key: "test key".to_string(),
+                issuer: "issuer".to_string(),
+                audience: "audience".to_string(),
+                validation_time_skew_sec: 1,
+            }),
+            config: AppConfig::default(),
+        });
+
+        let uut_app = test::init_service(
+            App::new()
+                .wrap(JwtAuthentication {})
+                .app_data(web::Data::new(app_state.clone()))
+                .route("/", web::get().to(HttpResponse::Ok)),
+        )
+        .await;
+        
+        let req = test::TestRequest::get()
+            .uri("/")
+            .insert_header((http::header::AUTHORIZATION, "Bearer bad_token"))
+            .to_request();
+        
+        let actual_resp = test::call_service(&uut_app, req).await;
+
+        assert_eq!(StatusCode::UNAUTHORIZED, actual_resp.status());
+    }
+
+    #[actix_web::test]
+    async fn will_return_200_on_valid_auth() {
+        let app_state = Arc::new(AppState {
+            token_service: Box::new(JwtTokenService {
+                signing_key: "test key".to_string(),
+                issuer: "issuer".to_string(),
+                audience: "audience".to_string(),
+                validation_time_skew_sec: 1,
+            }),
+            config: AppConfig::default(),
+        });
+
+        let uut_app = test::init_service(
+            App::new()
+                .wrap(JwtAuthentication {})
+                .app_data(web::Data::new(app_state.clone()))
+                .route("/", web::get().to(HttpResponse::Ok)),
+        )
+        .await;
+        
+        let req = test::TestRequest::get()
+            .uri("/")
+            // current POC implementation assumes valid token to match jwt audience
+            .insert_header((http::header::AUTHORIZATION, "Bearer audience"))
+            .to_request();
+        
+        let actual_resp = test::call_service(&uut_app, req).await;
+
+        assert_eq!(StatusCode::OK, actual_resp.status());
+    }
+}
