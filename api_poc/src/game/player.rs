@@ -39,7 +39,7 @@ impl Player {
 
     pub async fn create_identity_index(
         mongo_database: &Database,
-    ) -> mongodb::results::CreateIndexResult {
+    ) -> Result<mongodb::results::CreateIndexResult, mongodb::error::Error> {
         let options = IndexOptions::builder().unique(true).build();
         let model = IndexModel::builder()
             .keys(doc! { "provider_name": 1, "provider_identity_id": 1 })
@@ -50,7 +50,6 @@ impl Player {
         Self::get_player_collection(mongo_database)
             .create_index(model)
             .await
-            .expect("creating index collection should succeed")
     }
 
     /// Retrieve existing player using identity

@@ -5,7 +5,9 @@ use actix_web::{
     web::{self, ReqData},
     HttpResponse, Responder,
 };
+use bson::doc;
 use log::info;
+use mongodb::Database;
 
 use crate::{
     auth::jwt_auth_middleware::UserIdentityClaims,
@@ -16,6 +18,7 @@ use crate::{
 #[get("/hello/{name}")]
 async fn hello(
     data: web::Data<Arc<AppState>>,
+    db: web::Data<Arc<Database>>,
     name: web::Path<String>,
     claims: ReqData<UserIdentityClaims>,
 ) -> impl Responder {
@@ -26,8 +29,22 @@ async fn hello(
         None => "n/a",
     };
 
+    let command = doc! {
+        "find": "dummy_collection", // This collection does not need to exist
+        "filter": {},               // No filter, just a placeholder
+        "projection": { "echo": "hello world!" }, // Projection with a made-up field
+        "limit": 1                  // Limit to 1 result for simplicity
+    };
+
+    let db_result = db.run_command(command)
+        .await
+        .unwrap();
+
     let hello_message = format!("Hello {name} from {this_user_id} and {app_name}.");
-    HttpResponse::Ok().json(hello_message)
+
+    let response = (hello_message, db_result);
+
+    HttpResponse::Ok().json(response)
 }
 
 #[post("/calc_score")]

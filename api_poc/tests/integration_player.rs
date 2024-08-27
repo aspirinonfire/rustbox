@@ -49,7 +49,9 @@ async fn int_will_create_new_player() -> Result<(), Box<dyn std::error::Error + 
 
     let game_db = mongo_client.database(TEST_DB_NAME);
 
-    Player::create_identity_index(&game_db).await;
+    Player::create_identity_index(&game_db)
+        .await
+        .expect("failed to create player index");
 
     let actual_new_player = Player::create_from_external_identity(
         &game_db,
