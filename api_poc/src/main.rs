@@ -17,7 +17,7 @@ struct AppState {
     /// `Box<dyn ...>` enables a dynamic dispatch (vtable equivalent)
     /// allowing token service implementation to be known at the runtime rather than compile time.
     /// This is not strictly necessary for this project.
-    token_service: Box<dyn TokenService>
+    token_service: Box<dyn TokenService>,
 }
 
 #[actix_web::main]

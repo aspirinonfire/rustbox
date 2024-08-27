@@ -17,12 +17,10 @@ docker run --publish 8000:8000 --env-file .env --tty gameapi/rust:latest
 - [ ] Error Handling (4xx vs 5xx)
 - [x] Configuration
 - [x] JSON (de-)serialization
-- [ ] Testing
-  - [x] unit
-  - [ ] mocking
-  - [ ] testcontainers
+- [x] Unit Testing
+- [x] Integration testing with testcontainers
 - [x] Project/folder structure
-- [ ] Mongo Client
+- [x] Mongo Client
 - [x] Docker
 - [x] Auth middleware
 - [ ] Bearer Auth (JWT)

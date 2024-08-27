@@ -8,19 +8,22 @@ use actix_web::{
 use log::info;
 
 use crate::{
-    auth::jwt_auth_middleware::UserIdentityClaims, game::{license_plates::SpottedPlate, score_calculator::GameScoreResult}, AppState
+    auth::jwt_auth_middleware::UserIdentityClaims,
+    game::{license_plates::SpottedPlate, score_calculator::GameScoreResult},
+    AppState,
 };
 
 #[get("/hello/{name}")]
-async fn hello(data: web::Data<Arc<AppState>>,
+async fn hello(
+    data: web::Data<Arc<AppState>>,
     name: web::Path<String>,
-    claims: ReqData<UserIdentityClaims>
+    claims: ReqData<UserIdentityClaims>,
 ) -> impl Responder {
     let app_name = &data.config.appname;
 
     let this_user_id = match claims.0.get("sub") {
         Some(v) => v,
-        None => "n/a"
+        None => "n/a",
     };
 
     let hello_message = format!("Hello {name} from {this_user_id} and {app_name}.");

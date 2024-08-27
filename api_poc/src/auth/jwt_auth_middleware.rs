@@ -1,7 +1,15 @@
-use std::{collections::HashMap, future::{ready, Ready}, sync::Arc};
+use std::{
+    collections::HashMap,
+    future::{ready, Ready},
+    sync::Arc,
+};
 
 use actix_web::{
-    body::EitherBody, dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform}, http::header::AUTHORIZATION, web::Data, Error, HttpMessage, HttpResponse
+    body::EitherBody,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    http::header::AUTHORIZATION,
+    web::Data,
+    Error, HttpMessage, HttpResponse,
 };
 use futures_util::{future::LocalBoxFuture, FutureExt as _, TryFutureExt as _};
 use log::{error, info};
@@ -41,54 +49,56 @@ where
         let app_state = req.app_data::<Data<Arc<AppState>>>();
         if app_state.is_none() {
             error!("AppState not found in app_data. TokenService is not available");
-            return  Box::pin(async {
-                Ok(req.into_response(HttpResponse::InternalServerError().finish().map_into_right_body()))
+            return Box::pin(async {
+                Ok(req.into_response(
+                    HttpResponse::InternalServerError()
+                        .finish()
+                        .map_into_right_body(),
+                ))
             });
         }
 
         // TODO check if route expects anonymous auth. Use allow-list for simplicity
-        
-        let bearer_token = req
-            .headers()
-            .get(AUTHORIZATION)
-            .and_then(|header_value|
-                header_value
-                    .to_str()
-                    // TODO make Bearer case-insenstive
-                    .map_or(None, |header_str| header_str.strip_prefix("Bearer "))
-            );
+
+        let bearer_token = req.headers().get(AUTHORIZATION).and_then(|header_value| {
+            header_value
+                .to_str()
+                // TODO make Bearer case-insenstive
+                .map_or(None, |header_str| header_str.strip_prefix("Bearer "))
+        });
 
         if bearer_token.is_none() {
             error!("Bearer token was not found in request headers");
-            return  Box::pin(async {
+            return Box::pin(async {
                 Ok(req.into_response(HttpResponse::Unauthorized().finish().map_into_right_body()))
             });
         };
 
         // unwrapping is safe here because we have already validated app_state and bearer_token for None
-        let claims = app_state.unwrap()
-            .token_service.get_validated_claims(bearer_token.unwrap());
+        let claims = app_state
+            .unwrap()
+            .token_service
+            .get_validated_claims(bearer_token.unwrap());
 
         match claims {
             Ok(claims) => {
                 // add claims to request extensions so endpoints can use claims for further processing
-                req.extensions_mut()
-                    .insert(UserIdentityClaims(claims));
+                req.extensions_mut().insert(UserIdentityClaims(claims));
 
                 self.service
                     .call(req)
                     .map_ok(ServiceResponse::map_into_left_body)
                     .boxed_local()
-            },
+            }
             Err(err) => {
                 error!("Bearer token is invalid: {err}");
-                
+
                 Box::pin(async {
-                    Ok(req.into_response(HttpResponse::Unauthorized().finish().map_into_right_body()))
+                    Ok(req
+                        .into_response(HttpResponse::Unauthorized().finish().map_into_right_body()))
                 })
             }
         }
-
     }
 }
 
@@ -118,7 +128,10 @@ mod tests {
     use crate::{app_config::AppConfig, auth::token_service::JwtTokenService};
 
     use super::*;
-    use actix_web::{http::{self, StatusCode}, test, web, App};
+    use actix_web::{
+        http::{self, StatusCode},
+        test, web, App,
+    };
 
     #[actix_web::test]
     async fn will_return_401_on_missing_auth() {
@@ -139,9 +152,9 @@ mod tests {
                 .route("/", web::get().to(HttpResponse::Ok)),
         )
         .await;
-        
+
         let req = test::TestRequest::get().uri("/").to_request();
-        
+
         let actual_resp = test::call_service(&uut_app, req).await;
 
         assert_eq!(StatusCode::UNAUTHORIZED, actual_resp.status());
@@ -166,12 +179,12 @@ mod tests {
                 .route("/", web::get().to(HttpResponse::Ok)),
         )
         .await;
-        
+
         let req = test::TestRequest::get()
             .uri("/")
             .insert_header((http::header::AUTHORIZATION, "Bearer bad_token"))
             .to_request();
-        
+
         let actual_resp = test::call_service(&uut_app, req).await;
 
         assert_eq!(StatusCode::UNAUTHORIZED, actual_resp.status());
@@ -196,13 +209,13 @@ mod tests {
                 .route("/", web::get().to(HttpResponse::Ok)),
         )
         .await;
-        
+
         let req = test::TestRequest::get()
             .uri("/")
             // current POC implementation assumes valid token to match jwt audience
             .insert_header((http::header::AUTHORIZATION, "Bearer audience"))
             .to_request();
-        
+
         let actual_resp = test::call_service(&uut_app, req).await;
 
         assert_eq!(StatusCode::OK, actual_resp.status());
