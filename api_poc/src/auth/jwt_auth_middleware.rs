@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     future::{ready, Ready},
     sync::Arc,
 };
@@ -20,9 +19,6 @@ use crate::AppState;
 pub struct JwtAuthentication {
     // TODO add jwt params
 }
-
-#[derive(Debug, Clone)]
-pub struct UserIdentityClaims(pub HashMap<String, String>);
 
 /// JWT auth middleware
 pub struct JwtAuthenticationMiddleware<S> {
@@ -82,8 +78,10 @@ where
 
         match claims {
             Ok(claims) => {
-                // add claims to request extensions so endpoints can use claims for further processing
-                req.extensions_mut().insert(UserIdentityClaims(claims));
+                // add claims to request extensions so endpoints can use them to establish user context
+                // for the time being, we don't need to query db because everything we'll need will be
+                // stored in claims
+                req.extensions_mut().insert(claims);
 
                 self.service
                     .call(req)
@@ -136,12 +134,12 @@ mod tests {
     #[actix_web::test]
     async fn will_return_401_on_missing_auth() {
         let app_state = Arc::new(AppState {
-            token_service: Box::new(JwtTokenService {
-                signing_key: "test key".to_string(),
-                issuer: "issuer".to_string(),
-                audience: "audience".to_string(),
-                validation_time_skew_sec: 1,
-            }),
+            token_service: Box::new(JwtTokenService::new(
+                "test key",
+                "issuer",
+                "audience",
+                1,
+            )),
             config: AppConfig::default(),
         });
 
@@ -163,12 +161,12 @@ mod tests {
     #[actix_web::test]
     async fn will_return_401_on_bad_auth() {
         let app_state = Arc::new(AppState {
-            token_service: Box::new(JwtTokenService {
-                signing_key: "test key".to_string(),
-                issuer: "issuer".to_string(),
-                audience: "audience".to_string(),
-                validation_time_skew_sec: 1,
-            }),
+            token_service: Box::new(JwtTokenService::new(
+                "test key",
+                "issuer",
+                "audience",
+                1,
+            )),
             config: AppConfig::default(),
         });
 
@@ -193,14 +191,16 @@ mod tests {
     #[actix_web::test]
     async fn will_return_200_on_valid_auth() {
         let app_state = Arc::new(AppState {
-            token_service: Box::new(JwtTokenService {
-                signing_key: "test key".to_string(),
-                issuer: "issuer".to_string(),
-                audience: "audience".to_string(),
-                validation_time_skew_sec: 1,
-            }),
+            token_service: Box::new(JwtTokenService::new(
+                "test key",
+                "issuer",
+                "audience",
+                1,
+            )),
             config: AppConfig::default(),
         });
+
+        let valid_token = app_state.token_service.generate_token(1, "test_subject").unwrap();
 
         let uut_app = test::init_service(
             App::new()
@@ -213,7 +213,7 @@ mod tests {
         let req = test::TestRequest::get()
             .uri("/")
             // current POC implementation assumes valid token to match jwt audience
-            .insert_header((http::header::AUTHORIZATION, "Bearer audience"))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", &valid_token.token_value)))
             .to_request();
 
         let actual_resp = test::call_service(&uut_app, req).await;

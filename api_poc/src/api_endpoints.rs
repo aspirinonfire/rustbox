@@ -6,11 +6,11 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use bson::doc;
-use log::info;
+use log::{error, info};
 use mongodb::Database;
 
 use crate::{
-    auth::jwt_auth_middleware::UserIdentityClaims,
+    auth::token_service::UserClaims,
     game::{license_plates::SpottedPlate, score_calculator::GameScoreResult},
     AppState,
 };
@@ -20,14 +20,11 @@ async fn hello(
     data: web::Data<Arc<AppState>>,
     db: web::Data<Arc<Database>>,
     name: web::Path<String>,
-    claims: ReqData<UserIdentityClaims>,
+    claims: ReqData<&UserClaims>,
 ) -> impl Responder {
     let app_name = &data.config.appname;
 
-    let this_user_id = match claims.0.get("sub") {
-        Some(v) => v,
-        None => "n/a",
-    };
+    let this_user_id = &claims.sub;
 
     let command = doc! {
         "find": "dummy_collection", // This collection does not need to exist
@@ -36,15 +33,39 @@ async fn hello(
         "limit": 1                  // Limit to 1 result for simplicity
     };
 
-    let db_result = db.run_command(command)
-        .await
-        .unwrap();
+    let db_result = db.run_command(command).await.unwrap();
 
     let hello_message = format!("Hello {name} from {this_user_id} and {app_name}.");
 
     let response = (hello_message, db_result);
 
     HttpResponse::Ok().json(response)
+}
+
+/// Generate access token
+/// For the purposes of POC this endpoint will accept and validate a subject string in memory.
+/// 
+/// Actual implementation will use Google authorization code to validate the identity,
+/// create (or retrieve if exist) a player record from db, and only then generate API access token.
+#[post("/token")]
+async fn generate_token(
+    req_body: web::Json<String>,
+    data: web::Data<Arc<AppState>>,
+) -> impl Responder {
+
+    let subject = req_body.into_inner();
+
+    // TODO validate subject
+
+    let token_result = data.token_service.generate_token(1, &subject);
+
+    match token_result {
+        Ok(token) => HttpResponse::Ok().json(token.token_value),
+        Err(err) => {
+            error!("failed to generate token {}", err);
+            HttpResponse::Unauthorized().finish()
+        }
+    }
 }
 
 #[post("/calc_score")]

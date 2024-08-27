@@ -16,7 +16,9 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            mongo_connection_string: String::from("mongo://localhost:27017?directConnection=true&authSource=admin"),
+            mongo_connection_string: String::from(
+                "mongo://localhost:27017?directConnection=true&authSource=admin",
+            ),
             appname: String::from("game api"),
             host_ip: String::from("0.0.0.0"),
             port: 8000,

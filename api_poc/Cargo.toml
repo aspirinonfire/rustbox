@@ -15,6 +15,9 @@ futures-util = "0.3"
 dotenvy = "0.15"
 mongodb = "3.0"
 bson = "2.11"
+jsonwebtoken = {version = "9.3", default-features = false }
+chrono = "0.4"
 
 [dev-dependencies]
+base64 = "0.22"
 testcontainers = "0.21"

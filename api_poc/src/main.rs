@@ -51,12 +51,12 @@ async fn main() -> std::io::Result<()> {
     info!("mongo connected. initializing api handlers");
 
     let app_state = Arc::new(AppState {
-        token_service: Box::new(JwtTokenService {
-            signing_key: config.jwt_signing_key.to_string(),
-            issuer: config.appname.to_string(),
-            audience: config.appname.to_string(),
-            validation_time_skew_sec: 1,
-        }),
+        token_service: Box::new(JwtTokenService::new(
+            &config.jwt_signing_key,
+            &config.appname,
+            &config.appname,
+            1,
+        )),
         config,
     });
 
