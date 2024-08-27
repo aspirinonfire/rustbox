@@ -5,8 +5,7 @@ use futures_util::TryStreamExt;
 use mongodb::{bson::DateTime, options::IndexOptions, Collection, Database, IndexModel};
 use serde::{self, Deserialize, Serialize};
 
-const PLAYER_COLL_NAME: &str = "players";
-
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Player {
     #[serde(rename = "_id")]
@@ -32,9 +31,10 @@ pub struct Player {
     pub api_refresh_token_exp: DateTime,
 }
 
+#[allow(dead_code)]
 impl Player {
     fn get_player_collection(mongo_database: &Database) -> Collection<Player> {
-        mongo_database.collection::<Player>(PLAYER_COLL_NAME)
+        mongo_database.collection::<Player>("players")
     }
 
     pub async fn create_identity_index(
