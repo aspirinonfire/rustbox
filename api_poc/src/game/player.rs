@@ -33,7 +33,7 @@ pub struct Player {
 
 #[allow(dead_code)]
 impl Player {
-    fn get_player_collection(mongo_database: &Database) -> Collection<Player> {
+    pub fn get_player_collection(mongo_database: &Database) -> Collection<Player> {
         mongo_database.collection::<Player>("players")
     }
 
@@ -54,7 +54,7 @@ impl Player {
     }
 
     /// Retrieve existing player using identity
-    async fn get_player_by_existing_identity(
+    pub async fn get_player_by_existing_identity(
         mongo_database: &Database,
         provider_name: &str,
         provider_identity_id: &str,
@@ -115,121 +115,5 @@ impl Player {
             .await?;
 
         Ok(new_player)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use mongodb::Client;
-
-    use super::*;
-
-    use std::time::Duration;
-
-    use testcontainers::{
-        core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, ContainerAsync, GenericImage, ImageExt
-    };
-
-    pub const TEST_DB_NAME: &str = "test_db";
-    const TEST_USERNAME: &str = "root";
-    const TEST_PASSWORD: &str = "root";
-    const DEFAULT_MONGO_PORT: u16 = 27017;
-
-    pub async fn get_mongo_client_with_container() -> (ContainerAsync<GenericImage>, Client) {
-        let container = GenericImage::new("mongo", "7.0")
-            .with_wait_for(WaitFor::message_on_stdout("mongod startup complete"))
-            .with_exposed_port(DEFAULT_MONGO_PORT.tcp())
-            // configure mongo container
-            .with_env_var("MONGO_INITDB_DATABASE", TEST_DB_NAME)
-            .with_env_var("MONGO_INITDB_ROOT_USERNAME", TEST_USERNAME)
-            .with_env_var("MONGO_INITDB_ROOT_PASSWORD", TEST_PASSWORD)
-            // startup and network config
-            .with_startup_timeout(Duration::from_secs(30))
-            .start()
-            .await
-            .expect("Mongo container must be started");
-
-        let dynamic_port = &container.ports()
-            .await
-            .expect("Mongo container must have ports")
-            .map_to_host_port_ipv4(DEFAULT_MONGO_PORT.tcp())
-            .expect("mongo container must have 27017 exposed");
-
-        let conn_string = format!("mongodb://{TEST_USERNAME}:{TEST_PASSWORD}@localhost:{dynamic_port}/{TEST_DB_NAME}?directConnection=true&authSource=admin");
-
-        let mongo_client = Client::with_uri_str(conn_string)
-            .await
-            .expect("Mongo client must be created");
-
-
-        (container, mongo_client)
-    }
-
-    #[actix_web::test]
-    async fn will_return_player_when_exists() -> Result<(), Box<dyn std::error::Error + 'static>> {
-        // _container must be captured in the variable so the teardown wont happen too soon
-        let (_container, mongo_client) = get_mongo_client_with_container().await;
-
-        let game_db = mongo_client.database(TEST_DB_NAME);
-
-        let test_player = Player {
-            id: ObjectId::new(),
-            name: "name".into(),
-            date_created: DateTime::now(),
-
-            provider_name: "provider_name".into(),
-            provider_identity_id: "provider_identity_id".into(),
-            api_refresh_token: "api_refresh_token".into(),
-            api_refresh_token_exp: DateTime::now(),
-
-            games_owned: HashSet::new(),
-            games_invited: HashSet::new(),
-        };
-
-        let writable_collection = Player::get_player_collection(&game_db);
-        writable_collection.insert_one(&test_player).await?;
-
-        let actual_player = Player::get_player_by_existing_identity(
-            &game_db,
-            "provider_name",
-            "provider_identity_id",
-        )
-        .await?
-        .expect("test player must be present");
-
-        assert_eq!(test_player, actual_player);
-
-        Ok(())
-    }
-
-    #[actix_web::test]
-    async fn will_create_new_player() -> Result<(), Box<dyn std::error::Error + 'static>> {
-        let (_container, mongo_client) = get_mongo_client_with_container().await;
-
-        let game_db = mongo_client.database(TEST_DB_NAME);
-
-        Player::create_identity_index(&game_db).await;
-
-        let actual_new_player = Player::create_from_external_identity(
-            &game_db,
-            "test player",
-            "test_provider",
-            "test_provider_identity_id",
-            "test_api_refresh_token",
-            DateTime::now(),
-        )
-        .await?;
-
-        let actual_player_from_qry = Player::get_player_by_existing_identity(
-            &game_db,
-            &actual_new_player.provider_name,
-            &actual_new_player.provider_identity_id,
-        )
-        .await?
-        .expect("test player must be present");
-
-        assert_eq!(actual_new_player, actual_player_from_qry);
-
-        Ok(())
     }
 }
