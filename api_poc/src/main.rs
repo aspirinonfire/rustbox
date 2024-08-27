@@ -56,6 +56,7 @@ async fn main() -> std::io::Result<()> {
             &config.appname,
             &config.appname,
             1,
+            config.token_lifetime_min,
         )),
         config,
     });
@@ -69,7 +70,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             // middleware is executed in LIFO (stack) order
             .wrap(middleware::Compress::default())
-            .wrap(JwtAuthentication {}) // must be wrapped first to avoid compilation errors
+            .wrap(JwtAuthentication::new(vec!["/api/token".into()])) // must be wrapped first to avoid compilation errors
             // log each request. See https://docs.rs/actix-web/4.2.1/actix_web/middleware/struct.Logger.html#format
             // ex:
             // first line of request + response status + time take to serve request in ms

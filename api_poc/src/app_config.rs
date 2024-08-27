@@ -11,6 +11,8 @@ pub struct AppConfig {
     pub host_ip: String,
     pub port: u16,
     pub jwt_signing_key: String,
+    pub allowed_subj: String,
+    pub token_lifetime_min: u32,
 }
 
 impl Default for AppConfig {
@@ -22,7 +24,9 @@ impl Default for AppConfig {
             appname: String::from("game api"),
             host_ip: String::from("0.0.0.0"),
             port: 8000,
-            jwt_signing_key: String::new(),
+            jwt_signing_key: String::default(),
+            allowed_subj: String::default(),
+            token_lifetime_min: 20,
         }
     }
 }

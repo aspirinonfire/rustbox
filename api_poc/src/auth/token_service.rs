@@ -20,17 +20,14 @@ pub struct JwtToken {
 
 pub trait TokenService: Send + Sync {
     /// Generate new token with expiration
-    fn generate_token(
-        &self,
-        token_lifetime_min: i64,
-        subject: &str,
-    ) -> Result<JwtToken, Box<dyn Error>>;
+    fn generate_token(&self, subject: &str) -> Result<JwtToken, Box<dyn Error>>;
 
     /// Validate token and retrieve token claims
     fn get_validated_claims(&self, token: &str) -> Result<UserClaims, Box<dyn Error>>;
 }
 
 pub struct JwtTokenService {
+    token_lifetime_min: u32,
     signing_key: String,
     issuer: String,
     audience: String,
@@ -42,10 +39,11 @@ impl JwtTokenService {
         signing_key: &str,
         issuer: &str,
         audience: &str,
-        validation_time_skew_sec: u64,
+        validation_time_skew_sec: u32,
+        token_lifetime_min: u32,
     ) -> Self {
         let mut token_validation = Validation::new(Algorithm::HS256);
-        token_validation.leeway = validation_time_skew_sec;
+        token_validation.leeway = validation_time_skew_sec as u64;
         token_validation.set_audience(&[audience]);
         token_validation.set_required_spec_claims(&["exp", "aud", "sub"]);
 
@@ -54,20 +52,17 @@ impl JwtTokenService {
             issuer: issuer.into(),
             audience: audience.into(),
             token_validation_rules: token_validation,
+            token_lifetime_min,
         }
     }
 }
 
 impl TokenService for JwtTokenService {
-    fn generate_token(
-        &self,
-        token_lifetime_min: i64,
-        subject: &str,
-    ) -> Result<JwtToken, Box<dyn Error>> {
+    fn generate_token(&self, subject: &str) -> Result<JwtToken, Box<dyn Error>> {
         let now = Utc::now();
 
         let exp = now
-            .checked_add_signed(chrono::Duration::minutes(token_lifetime_min))
+            .checked_add_signed(chrono::Duration::minutes(self.token_lifetime_min as i64))
             .expect("valid timestamp is required")
             .timestamp() as usize;
 
@@ -110,9 +105,9 @@ mod tests {
 
     #[test]
     fn will_generate_valid_token_with_required_claims() {
-        let uut_svc = JwtTokenService::new("secret key", "issuer", "audience", 1);
+        let uut_svc = JwtTokenService::new("secret key", "issuer", "audience", 1, 5);
 
-        let actual_token = uut_svc.generate_token(1, "test_subject").unwrap();
+        let actual_token = uut_svc.generate_token("test_subject").unwrap();
 
         let token_parts: Vec<&str> = actual_token.token_value.split(".").collect();
 
@@ -131,9 +126,9 @@ mod tests {
 
     #[test]
     fn will_decode_valid_token() {
-        let uut_svc = JwtTokenService::new("secret key", "issuer", "audience", 1);
+        let uut_svc = JwtTokenService::new("secret key", "issuer", "audience", 1, 5);
 
-        let token_to_decode = uut_svc.generate_token(1, "test_subject").unwrap();
+        let token_to_decode = uut_svc.generate_token("test_subject").unwrap();
 
         let actual_claims = uut_svc
             .get_validated_claims(&token_to_decode.token_value)
@@ -145,10 +140,7 @@ mod tests {
 
     #[test]
     fn will_return_error_on_expired_token() {
-        let uut_svc = JwtTokenService::new("secret key",
-            "issuer",
-            "audience",
-            1);
+        let uut_svc = JwtTokenService::new("secret key", "issuer", "audience", 1, 5);
 
         let now = Utc::now();
 
@@ -171,21 +163,17 @@ mod tests {
             &Header::default(),
             &user_claims,
             &EncodingKey::from_secret(uut_svc.signing_key.as_ref()),
-        ).expect("valid token required");
+        )
+        .expect("valid token required");
 
-        let actual_decode_err = uut_svc
-            .get_validated_claims(&token_to_decode)
-            .unwrap_err();
+        let actual_decode_err = uut_svc.get_validated_claims(&token_to_decode).unwrap_err();
 
         assert_eq!("ExpiredSignature", actual_decode_err.to_string());
     }
 
     #[test]
     fn will_return_error_on_invalid_audience_token() {
-        let uut_svc = JwtTokenService::new("secret key",
-            "issuer",
-            "audience",
-            1);
+        let uut_svc = JwtTokenService::new("secret key", "issuer", "audience", 1, 5);
 
         let now = Utc::now();
 
@@ -208,11 +196,10 @@ mod tests {
             &Header::default(),
             &user_claims,
             &EncodingKey::from_secret(uut_svc.signing_key.as_ref()),
-        ).expect("valid token required");
+        )
+        .expect("valid token required");
 
-        let actual_decode_err = uut_svc
-            .get_validated_claims(&token_to_decode)
-            .unwrap_err();
+        let actual_decode_err = uut_svc.get_validated_claims(&token_to_decode).unwrap_err();
 
         assert_eq!("InvalidAudience", actual_decode_err.to_string());
     }

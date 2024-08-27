@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     future::{ready, Ready},
     sync::Arc,
 };
@@ -17,13 +18,20 @@ use crate::AppState;
 
 /// [Inspired by](https://github.com/actix/examples/blob/master/middleware/rate-limit/src/rate_limit.rs)
 pub struct JwtAuthentication {
-    // TODO add jwt params
+    anonymous_urls: Vec<String>,
+}
+
+impl JwtAuthentication {
+    pub fn new(anonymous_urls: Vec<String>) -> Self {
+        Self { anonymous_urls }
+    }
 }
 
 /// JWT auth middleware
 pub struct JwtAuthenticationMiddleware<S> {
     /// The next service to call after this one
     service: S,
+    anonymous_urls: HashSet<String>,
 }
 
 /// JWT Auth middleware implementation
@@ -40,7 +48,18 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        info!("Authenticating {}", req.uri());
+        let request_url = &req.uri();
+        info!("Authenticating {}", request_url);
+
+        // check if route expects anonymous auth. Use allow-list for simplicity
+        if self.anonymous_urls.contains(&request_url.to_string()) {
+            info!("Uri is marked for anonymous auth. Skipping auth validation...");
+            return self
+                .service
+                .call(req)
+                .map_ok(ServiceResponse::map_into_left_body)
+                .boxed_local();
+        }
 
         let app_state = req.app_data::<Data<Arc<AppState>>>();
         if app_state.is_none() {
@@ -53,8 +72,6 @@ where
                 ))
             });
         }
-
-        // TODO check if route expects anonymous auth. Use allow-list for simplicity
 
         let bearer_token = req.headers().get(AUTHORIZATION).and_then(|header_value| {
             header_value
@@ -117,7 +134,10 @@ where
     // Initialize the middleware
     fn new_transform(&self, service: S) -> Self::Future {
         // Return a Ready future containing the JwtAuthenticationMiddleware instance
-        ready(Ok(JwtAuthenticationMiddleware { service }))
+        ready(Ok(JwtAuthenticationMiddleware {
+            service,
+            anonymous_urls: self.anonymous_urls.iter().cloned().collect(),
+        }))
     }
 }
 
@@ -134,18 +154,13 @@ mod tests {
     #[actix_web::test]
     async fn will_return_401_on_missing_auth() {
         let app_state = Arc::new(AppState {
-            token_service: Box::new(JwtTokenService::new(
-                "test key",
-                "issuer",
-                "audience",
-                1,
-            )),
+            token_service: Box::new(JwtTokenService::new("test key", "issuer", "audience", 1, 1)),
             config: AppConfig::default(),
         });
 
         let uut_app = test::init_service(
             App::new()
-                .wrap(JwtAuthentication {})
+                .wrap(JwtAuthentication::new(vec!["".into()]))
                 .app_data(web::Data::new(app_state.clone()))
                 .route("/", web::get().to(HttpResponse::Ok)),
         )
@@ -161,18 +176,13 @@ mod tests {
     #[actix_web::test]
     async fn will_return_401_on_bad_auth() {
         let app_state = Arc::new(AppState {
-            token_service: Box::new(JwtTokenService::new(
-                "test key",
-                "issuer",
-                "audience",
-                1,
-            )),
+            token_service: Box::new(JwtTokenService::new("test key", "issuer", "audience", 1, 1)),
             config: AppConfig::default(),
         });
 
         let uut_app = test::init_service(
             App::new()
-                .wrap(JwtAuthentication {})
+                .wrap(JwtAuthentication::new(vec!["".into()]))
                 .app_data(web::Data::new(app_state.clone()))
                 .route("/", web::get().to(HttpResponse::Ok)),
         )
@@ -191,20 +201,18 @@ mod tests {
     #[actix_web::test]
     async fn will_return_200_on_valid_auth() {
         let app_state = Arc::new(AppState {
-            token_service: Box::new(JwtTokenService::new(
-                "test key",
-                "issuer",
-                "audience",
-                1,
-            )),
+            token_service: Box::new(JwtTokenService::new("test key", "issuer", "audience", 1, 1)),
             config: AppConfig::default(),
         });
 
-        let valid_token = app_state.token_service.generate_token(1, "test_subject").unwrap();
+        let valid_token = app_state
+            .token_service
+            .generate_token("test_subject")
+            .unwrap();
 
         let uut_app = test::init_service(
             App::new()
-                .wrap(JwtAuthentication {})
+                .wrap(JwtAuthentication::new(vec!["".into()]))
                 .app_data(web::Data::new(app_state.clone()))
                 .route("/", web::get().to(HttpResponse::Ok)),
         )
@@ -213,7 +221,35 @@ mod tests {
         let req = test::TestRequest::get()
             .uri("/")
             // current POC implementation assumes valid token to match jwt audience
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", &valid_token.token_value)))
+            .insert_header((
+                http::header::AUTHORIZATION,
+                format!("Bearer {}", &valid_token.token_value),
+            ))
+            .to_request();
+
+        let actual_resp = test::call_service(&uut_app, req).await;
+
+        assert_eq!(StatusCode::OK, actual_resp.status());
+    }
+
+    #[actix_web::test]
+    async fn will_return_200_on_anonymous_auth() {
+        let app_state = Arc::new(AppState {
+            token_service: Box::new(JwtTokenService::new("test key", "issuer", "audience", 1, 1)),
+            config: AppConfig::default(),
+        });
+
+        let uut_app = test::init_service(
+            App::new()
+                .wrap(JwtAuthentication::new(vec!["/test".into()]))
+                .app_data(web::Data::new(app_state.clone()))
+                .route("/test", web::get().to(HttpResponse::Ok)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/test")
+            // current POC implementation assumes valid token to match jwt audience
             .to_request();
 
         let actual_resp = test::call_service(&uut_app, req).await;
