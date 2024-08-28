@@ -7,13 +7,14 @@ Game Api proof-of-concept using [Actix Web](https://actix.rs/docs/getting-starte
 
 #### Docker
 ```bash
-# Start transient mongo instance.
+# Start mongo instance for development
 docker run --publish 27017:27017 --env-file .env --detach mongo:7.0
 
 # build and run rust app from docker
 cd api_poc
-docker build . --tag gameapi/rust:latest
-docker run --publish 8000:8000 --env-file .env --tty gameapi/rust:latest
+# populate .env file. see .env.sample
+docker-compose build
+docker-compose up
 ```
 
 #### POC Topics
