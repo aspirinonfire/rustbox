@@ -223,7 +223,7 @@ mod tests {
             // current POC implementation assumes valid token to match jwt audience
             .insert_header((
                 http::header::AUTHORIZATION,
-                format!("Bearer {}", &valid_token.token_value),
+                format!("Bearer {}", &valid_token.access_token),
             ))
             .to_request();
 

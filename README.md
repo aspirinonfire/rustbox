@@ -27,4 +27,4 @@ docker run --publish 8000:8000 --env-file .env --tty gameapi/rust:latest
 - [x] Mongo Client
 - [x] Docker
 - [x] Auth middleware
-- [ ] Bearer Auth (JWT)
+- [x] Bearer Auth (JWT)

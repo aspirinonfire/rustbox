@@ -20,8 +20,7 @@ async fn hello(
     data: web::Data<Arc<AppState>>,
     db: web::Data<Arc<Database>>,
     name: web::Path<String>,
-    // TODO need fixing
-    claims: ReqData<&UserClaims>,
+    claims: ReqData<UserClaims>,
 ) -> impl Responder {
     let app_name = &data.config.appname;
 
@@ -64,7 +63,7 @@ async fn generate_token(
     let token_result = data.token_service.generate_token(&subject);
 
     match token_result {
-        Ok(token) => HttpResponse::Ok().json(token.token_value),
+        Ok(token) => HttpResponse::Ok().json(token),
         Err(err) => {
             error!("failed to generate token {}", err);
             HttpResponse::Unauthorized().finish()

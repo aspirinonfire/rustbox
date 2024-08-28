@@ -4,7 +4,7 @@ use chrono::Utc;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserClaims {
     pub sub: String,
     pub aud: String,
@@ -14,8 +14,9 @@ pub struct UserClaims {
     pub iat: usize,
 }
 
+#[derive(Serialize)]
 pub struct JwtToken {
-    pub token_value: String,
+    pub access_token: String,
 }
 
 pub trait TokenService: Send + Sync {
@@ -76,13 +77,13 @@ impl TokenService for JwtTokenService {
             iat: now.timestamp() as usize,
         };
 
-        let token = encode(
+        let access_token = encode(
             &Header::default(),
             &user_claims,
             &EncodingKey::from_secret(self.signing_key.as_ref()),
         )?;
 
-        Ok(JwtToken { token_value: token })
+        Ok(JwtToken { access_token })
     }
 
     fn get_validated_claims(&self, token: &str) -> Result<UserClaims, Box<dyn Error>> {
@@ -109,7 +110,7 @@ mod tests {
 
         let actual_token = uut_svc.generate_token("test_subject").unwrap();
 
-        let token_parts: Vec<&str> = actual_token.token_value.split(".").collect();
+        let token_parts: Vec<&str> = actual_token.access_token.split(".").collect();
 
         assert_eq!(3, token_parts.len());
 
@@ -131,7 +132,7 @@ mod tests {
         let token_to_decode = uut_svc.generate_token("test_subject").unwrap();
 
         let actual_claims = uut_svc
-            .get_validated_claims(&token_to_decode.token_value)
+            .get_validated_claims(&token_to_decode.access_token)
             .unwrap();
 
         assert_eq!("test_subject", actual_claims.sub);
